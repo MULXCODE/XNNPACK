@@ -62,9 +62,9 @@ void xnn_qs8_gemm_minmax_ukernel_${MR}x${NR}c4__neondot(
         int32x4_t vacc${M}x${ABC[N:N+4]} = vacc0x${ABC[N:N+4]};
 
     // Inner accumulation loop along the ${NR} columns.
-    size_t k = kc;
+    ptrdiff_t k = (ptrdiff_t) kc;
     // 2x partial unrolled loop to load 8 bytes at a time.
-    while (k >= 8 * sizeof(int8_t)) {
+    while (k > 4) {
       // Load a ${MR}x8 block of activations.
       $for M in range(MR):
         const int8x8_t va${M}x01234567 = vld1_s8(a${M}); a${M} += 8;
@@ -82,8 +82,8 @@ void xnn_qs8_gemm_minmax_ukernel_${MR}x${NR}c4__neondot(
 
       k -= 8 * sizeof(int8_t);
     }
-    // Handle up to 7 final positions of `k`
-    if XNN_UNLIKELY(k != 0) {
+    // Handle up to 4 final positions of `k`
+    if XNN_UNLIKELY(k > 0) {
       // Load a ${MR}x4 block of activations.
       $for M in range(MR):
         const int8x8_t va${M}x01234567 = vld1_s8(a${M}); a${M} += k;
@@ -96,25 +96,9 @@ void xnn_qs8_gemm_minmax_ukernel_${MR}x${NR}c4__neondot(
       $for M in range(MR):
         $for N in range(0, NR, 4):
             vacc${M}x${ABC[N:N+4]} = vdotq_lane_s32(vacc${M}x${ABC[N:N+4]}, vb0123x${ABC[N:N+4]}, va${M}x01234567, 0);
-
-      if (k > 4) {
-        // Load a 4x${NR} block of weights.
-        $for N in range(0, NR, 4):
-          const int8x16_t vb4567x${ABC[N:N+4]} = vld1q_s8(w); w = (const void*) ((const int8_t*) w + 16);
-
-        // Multiply-accumulate: ${MR}x4 * 4x${NR} --> ${MR}x${NR}.
-        $for M in range(MR):
-          $for N in range(0, NR, 4):
-              vacc${M}x${ABC[N:N+4]} = vdotq_lane_s32(vacc${M}x${ABC[N:N+4]}, vb4567x${ABC[N:N+4]}, va${M}x01234567, 1);
-      }
     }
-    // End of accumulation loop. The variable `kc` contains the amount by which
-    // we advanced the `va` pointers, so we rewind by this amount now.
-    $for M in range(MR):
-      a${M} = (const int8_t*) ((uintptr_t) a${M} - kc);
 
     // Post-accumulation work
-
     const int32x4_t vright_shift = vld1q_dup_s32(&params->neon.right_shift);
     const int32x4_t vzero_shift_mask = vreinterpretq_s32_u32(vceqq_s32(vright_shift, vmovq_n_s32(0)));
 
@@ -204,6 +188,9 @@ void xnn_qs8_gemm_minmax_ukernel_${MR}x${NR}c4__neondot(
       // Advance to the next ${NR} columns.
       $for M in range(MR):
         c${M} = (int8_t*) ((uintptr_t) c${M} + cn_stride);
+
+      $for M in range(MR):
+        a${M} = (const int8_t*) ((uintptr_t) a${M} - (kc - k));
 
       nc -= ${NR};
     } else {

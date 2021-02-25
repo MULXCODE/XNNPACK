@@ -94,9 +94,9 @@ void xnn_qs8_gemm_minmax_ukernel_6x16c4__neondot(
     int32x4_t vacc5xCDEF = vacc0xCDEF;
 
     // Inner accumulation loop along the 16 columns.
-    size_t k = kc;
+    ptrdiff_t k = (ptrdiff_t) kc;
     // 2x partial unrolled loop to load 8 bytes at a time.
-    while (k >= 8 * sizeof(int8_t)) {
+    while (k > 4) {
       // Load a 6x8 block of activations.
       const int8x8_t va0x01234567 = vld1_s8(a0); a0 += 8;
       const int8x8_t va1x01234567 = vld1_s8(a1); a1 += 8;
@@ -167,8 +167,8 @@ void xnn_qs8_gemm_minmax_ukernel_6x16c4__neondot(
 
       k -= 8 * sizeof(int8_t);
     }
-    // Handle up to 7 final positions of `k`
-    if XNN_UNLIKELY(k != 0) {
+    // Handle up to 4 final positions of `k`
+    if XNN_UNLIKELY(k > 0) {
       // Load a 6x4 block of activations.
       const int8x8_t va0x01234567 = vld1_s8(a0); a0 += k;
       const int8x8_t va1x01234567 = vld1_s8(a1); a1 += k;
@@ -208,52 +208,9 @@ void xnn_qs8_gemm_minmax_ukernel_6x16c4__neondot(
       vacc5x4567 = vdotq_lane_s32(vacc5x4567, vb0123x4567, va5x01234567, 0);
       vacc5x89AB = vdotq_lane_s32(vacc5x89AB, vb0123x89AB, va5x01234567, 0);
       vacc5xCDEF = vdotq_lane_s32(vacc5xCDEF, vb0123xCDEF, va5x01234567, 0);
-
-      if (k > 4) {
-        // Load a 4x16 block of weights.
-        const int8x16_t vb4567x0123 = vld1q_s8(w); w = (const void*) ((const int8_t*) w + 16);
-        const int8x16_t vb4567x4567 = vld1q_s8(w); w = (const void*) ((const int8_t*) w + 16);
-        const int8x16_t vb4567x89AB = vld1q_s8(w); w = (const void*) ((const int8_t*) w + 16);
-        const int8x16_t vb4567xCDEF = vld1q_s8(w); w = (const void*) ((const int8_t*) w + 16);
-
-        // Multiply-accumulate: 6x4 * 4x16 --> 6x16.
-        vacc0x0123 = vdotq_lane_s32(vacc0x0123, vb4567x0123, va0x01234567, 1);
-        vacc0x4567 = vdotq_lane_s32(vacc0x4567, vb4567x4567, va0x01234567, 1);
-        vacc0x89AB = vdotq_lane_s32(vacc0x89AB, vb4567x89AB, va0x01234567, 1);
-        vacc0xCDEF = vdotq_lane_s32(vacc0xCDEF, vb4567xCDEF, va0x01234567, 1);
-        vacc1x0123 = vdotq_lane_s32(vacc1x0123, vb4567x0123, va1x01234567, 1);
-        vacc1x4567 = vdotq_lane_s32(vacc1x4567, vb4567x4567, va1x01234567, 1);
-        vacc1x89AB = vdotq_lane_s32(vacc1x89AB, vb4567x89AB, va1x01234567, 1);
-        vacc1xCDEF = vdotq_lane_s32(vacc1xCDEF, vb4567xCDEF, va1x01234567, 1);
-        vacc2x0123 = vdotq_lane_s32(vacc2x0123, vb4567x0123, va2x01234567, 1);
-        vacc2x4567 = vdotq_lane_s32(vacc2x4567, vb4567x4567, va2x01234567, 1);
-        vacc2x89AB = vdotq_lane_s32(vacc2x89AB, vb4567x89AB, va2x01234567, 1);
-        vacc2xCDEF = vdotq_lane_s32(vacc2xCDEF, vb4567xCDEF, va2x01234567, 1);
-        vacc3x0123 = vdotq_lane_s32(vacc3x0123, vb4567x0123, va3x01234567, 1);
-        vacc3x4567 = vdotq_lane_s32(vacc3x4567, vb4567x4567, va3x01234567, 1);
-        vacc3x89AB = vdotq_lane_s32(vacc3x89AB, vb4567x89AB, va3x01234567, 1);
-        vacc3xCDEF = vdotq_lane_s32(vacc3xCDEF, vb4567xCDEF, va3x01234567, 1);
-        vacc4x0123 = vdotq_lane_s32(vacc4x0123, vb4567x0123, va4x01234567, 1);
-        vacc4x4567 = vdotq_lane_s32(vacc4x4567, vb4567x4567, va4x01234567, 1);
-        vacc4x89AB = vdotq_lane_s32(vacc4x89AB, vb4567x89AB, va4x01234567, 1);
-        vacc4xCDEF = vdotq_lane_s32(vacc4xCDEF, vb4567xCDEF, va4x01234567, 1);
-        vacc5x0123 = vdotq_lane_s32(vacc5x0123, vb4567x0123, va5x01234567, 1);
-        vacc5x4567 = vdotq_lane_s32(vacc5x4567, vb4567x4567, va5x01234567, 1);
-        vacc5x89AB = vdotq_lane_s32(vacc5x89AB, vb4567x89AB, va5x01234567, 1);
-        vacc5xCDEF = vdotq_lane_s32(vacc5xCDEF, vb4567xCDEF, va5x01234567, 1);
-      }
     }
-    // End of accumulation loop. The variable `kc` contains the amount by which
-    // we advanced the `va` pointers, so we rewind by this amount now.
-    a0 = (const int8_t*) ((uintptr_t) a0 - kc);
-    a1 = (const int8_t*) ((uintptr_t) a1 - kc);
-    a2 = (const int8_t*) ((uintptr_t) a2 - kc);
-    a3 = (const int8_t*) ((uintptr_t) a3 - kc);
-    a4 = (const int8_t*) ((uintptr_t) a4 - kc);
-    a5 = (const int8_t*) ((uintptr_t) a5 - kc);
 
     // Post-accumulation work
-
     const int32x4_t vright_shift = vld1q_dup_s32(&params->neon.right_shift);
     const int32x4_t vzero_shift_mask = vreinterpretq_s32_u32(vceqq_s32(vright_shift, vmovq_n_s32(0)));
 
@@ -407,6 +364,13 @@ void xnn_qs8_gemm_minmax_ukernel_6x16c4__neondot(
       c3 = (int8_t*) ((uintptr_t) c3 + cn_stride);
       c4 = (int8_t*) ((uintptr_t) c4 + cn_stride);
       c5 = (int8_t*) ((uintptr_t) c5 + cn_stride);
+
+      a0 = (const int8_t*) ((uintptr_t) a0 - (kc - k));
+      a1 = (const int8_t*) ((uintptr_t) a1 - (kc - k));
+      a2 = (const int8_t*) ((uintptr_t) a2 - (kc - k));
+      a3 = (const int8_t*) ((uintptr_t) a3 - (kc - k));
+      a4 = (const int8_t*) ((uintptr_t) a4 - (kc - k));
+      a5 = (const int8_t*) ((uintptr_t) a5 - (kc - k));
 
       nc -= 16;
     } else {
