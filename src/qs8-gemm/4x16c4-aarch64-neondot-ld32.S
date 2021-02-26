@@ -80,16 +80,16 @@ BEGIN_FUNCTION xnn_qs8_gemm_minmax_ukernel_4x16c4__aarch64_neondot_ld32
         LDR     s1, [x15], 4
         LDR     s2, [x13], 4
         LDR     s3,  [x4], 4
-        SDOT    v16.4s, v4.16b,  v0.4b[0]
+        SDOT    v16.4s, v4.16b, v0.4b[0]
         LDR     q5, [x5], 16
-        SDOT    v17.4s, v4.16b,  v1.4b[0]
-        SDOT    v18.4s, v4.16b,  v2.4b[0]
-        SDOT    v19.4s, v4.16b,  v3.4b[0]
-        SDOT    v20.4s, v5.16b,  v0.4b[0]
+        SDOT    v17.4s, v4.16b, v1.4b[0]
+        SDOT    v18.4s, v4.16b, v2.4b[0]
+        SDOT    v19.4s, v4.16b, v3.4b[0]
+        SDOT    v20.4s, v5.16b, v0.4b[0]
         LDR     q6, [x5], 16
-        SDOT    v21.4s, v5.16b,  v1.4b[0]
-        SDOT    v22.4s, v5.16b,  v2.4b[0]
-        SDOT    v23.4s, v5.16b,  v3.4b[0]
+        SDOT    v21.4s, v5.16b, v1.4b[0]
+        SDOT    v22.4s, v5.16b, v2.4b[0]
+        SDOT    v23.4s, v5.16b, v3.4b[0]
         SDOT    v24.4s, v6.16b, v0.4b[0]
         LDR     q7, [x5], 16
         SDOT    v25.4s, v6.16b, v1.4b[0]
@@ -98,9 +98,9 @@ BEGIN_FUNCTION xnn_qs8_gemm_minmax_ukernel_4x16c4__aarch64_neondot_ld32
         SDOT    v28.4s, v7.16b, v0.4b[0]
         SDOT    v29.4s, v7.16b, v1.4b[0]
         SDOT    v30.4s, v7.16b, v2.4b[0]
-        SDOT    v31.4s, v7.16b, v3.4b[0]
         SUBS    x0, x0, 4
-        B.HI   1b
+        SDOT    v31.4s, v7.16b, v3.4b[0]
+        B.HI    1b
 
         # Apply params - scale, shift, bias and clamp
         LD2R    {v0.4s, v1.4s}, [x11], 8
